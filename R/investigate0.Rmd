@@ -1,0 +1,96 @@
+---
+title: "Corr-coeff"
+output: html_document
+---
+
+I want to investigate inference of population correlation coefficient(s) based the observed
+sample correlation coefficient(s).
+
+Particularly I want to investigate how one might define a likelihood for an
+observed (sample) correlation coefficient, given some prior on the population correlation coefficient. 
+
+Let $\rho$ denote the population correlation coefficient and $r$ denote the observed sample correlation coefficient. Now define Fishers z-transform, $z(\rho)$ as follows:
+
+```{r}
+fisherz = function(r){
+  return (0.5*log((1+r)/(1-r)))
+}
+```
+
+Note that if the sample size is $n$ then 
+$z(r)$ is approximately normal, with mean $z(\rho)$ and variance $1/(n-3)$.
+http://en.wikipedia.org/wiki/Fisher_transformation
+
+So if $z:=z(r)$ is the observed value of $z$ then
+$p(z | \rho)$ is a simple normal distribution with mean $z(\rho)$.
+
+I want to specify a prior on $\rho$ and integrate it out. The computations
+become analytic if I use a normal prior for $z(\rho)$, or indeed a mixture of normals.
+But I wanted to use a prior on $\rho$. For example, Guan and Stephens look at Uniform prior
+on the PVE in a multivariate regression, so here $PVE:=\rho^2$. 
+The question here is how does a prior on $\rho$ transform to a prior on $z(\rho)$?
+
+Let's look for a Be(0.5,0.5) prior on the PVE.
+```{r}
+  pve = rbeta(10000,0.5,0.5)
+  rho = sqrt(pve)
+  rho = c(-pve,pve) #make symetric about 0
+  zrho = fisherz(rho)
+  hist(zrho)
+  qqnorm(zrho)
+  abline(a=0,b=1,col=1)
+  abline(a=0,b=2,col=2)
+```
+
+Kind of looks like a mixture of normal distributions would fit. We can use ash to do this, setting
+se to be very small to reflect we don't really have measurement error here.
+```{r}
+  library(ashr)
+  ash(zrho,1e-6,mixsd = c(0,0.125,0.25,0.5,1,2,4),mixcompdist="normal",pointmass=FALSE,prior="uniform")
+```
+
+```{r}
+  fitnorm=function(alpha,beta){
+    pve = rbeta(10000,alpha,beta)
+    rho = sqrt(pve)
+    rho = c(-pve,pve) #make symetric about 0
+    zrho = fisherz(rho)
+    ash(zrho,1e-6,mixsd = c(0,0.125,0.25,0.5,1,2,4),mixcompdist="normal",pointmass=FALSE,prior="uniform")   
+  }
+  fit5=fitnorm(0.5,0.5)
+  fit1=fitnorm(1,1)
+```
+
+It is kind of interesting that in the uniform case it seems to fit almost exactly
+$1/3 N(0,.5^2) + 2/3 N(0,1)$ for zrho.
+
+We can use this to define a Bayes Factor:
+```{r}
+#' @param r observed correlation
+#' @param n sample size
+#' @param prior a mixture of normals prior for the fisher transform of rho (eg obtained from ash)
+  BFrho = function(r,n,prior){
+    zr = fisherz(r)
+    s = sqrt(1/(n-3)) #standard error according to standard theory
+    LH0 = dnorm(zr,0,s)
+    g=prior 
+    g$sd = sqrt(g$sd^2 + s^2)  #gives standard deviation of observation, combining stanard error and prior
+    LH1 = dens(g,zr)
+    return(LH1/LH0)
+  }
+```
+
+Let's compare with http://www.ejwagenmakers.com/2012/WetzelsWagenmakers2012.pdf
+where they do the following example:
+``Entering r=−.36 and n=54 in Eq. 13 yields a
+Bayes factor BF= 3.86, indicating that the data are 3.86
+times more likely to have occurred under H1 than under H0".
+```{r}
+  BFrho(0.36,54,fit1$fitted.g)
+  BFrho(0.36,54,fit5$fitted.g)
+```
+
+
+
+
+
