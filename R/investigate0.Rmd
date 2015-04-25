@@ -95,15 +95,20 @@ times more likely to have occurred under H1 than under H0".
 
 Now let's look at distribution of rho for different normal distributions on $z$.  Recall that the inverse Fisher transform is $r=tanh(z)$.
 ```{r}
-  hist(tanh(rnorm(10000)))
-  hist(tanh(2*rnorm(10000)))
+  hist(tanh(rnorm(100000)),nclass=100)
+  hist(tanh(1.1*rnorm(100000)),nclass=100)
+  hist(tanh(2*rnorm(10000)),nclass=100)
   hist(tanh(0.9*rnorm(10000)),nclass=100)
   hist(tanh(0.8*rnorm(10000)),nclass=100)
   hist(tanh(0.5*rnorm(10000)))
   hist(tanh(0.1*rnorm(10000)))
+  hist(tanh(c(0.8*rnorm(1000),0.01*rnorm(10000))))
 ```
 So the sd of the normal determines ``shrinkage" towards 0. 
 Roughly uniform when the sd is 0.8, although quite steep drop-off in density near 0 and 1.
+Need a mixture of normals to get a very long-tailed distribution
+with strong spike at 0....
+
 
 
 
